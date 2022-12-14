@@ -188,7 +188,7 @@ if __name__ == '__main__':
         with open(os.path.join(dst, 'mapping_rules.yaml'), 'w') as f:
             yaml.safe_dump(mapping_rules, f)
         cmake = cmake.replace('<custom_map>', 'install(FILES mapping_rules.yaml DESTINATION share/${PROJECT_NAME})')
-        pkg_xml = pkg_xml.replace('<custom_map>', '<ros1_bridge mapping_rules="mapping_rules.yaml"/>')
+        pkg_xml = pkg_xml.replace('<custom_map>', '\n    <ros1_bridge mapping_rules="mapping_rules.yaml"/>')
     else:
         cmake = cmake.replace('<custom_map>', '')
         pkg_xml = pkg_xml.replace('<custom_map>', '')
