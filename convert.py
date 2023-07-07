@@ -11,32 +11,47 @@ types_convert['time'] = 'builtin_interfaces/Time'
 types_convert['Header'] = 'std_msgs/Header'
 types_convert['rosgraph_msgs/Log'] = 'rcl_interfaces/Log'
 
+
 class Interface:
     def __init__(self, filename, package_name):
         self.filename = os.path.basename(filename)
         self.depends = set()
         self.types = set()
+        self.interface = 'message' if filename[-3:] == 'msg' else 'service'
         self.name = self.filename[:-4]
         
         print('\nParsing ' + self.filename)
-        
-        # changes to ROS 2 field names
-        self.fields_1_to_2 = {}
-        
-        fields = []
+
         
         with open(filename) as f:
-            content = f.read().splitlines()
+            content = [line.strip() for line in f.read().splitlines()]
+
+        # changes to ROS 2 field names
+        is_srv = '---' in content
+
+        if is_srv:
+            self.fields_1_to_2 = {'request_': {}, 'response_': {}}
+            fields = {'request_': [], 'response_': []}
+            field_prefix = 'request_'
+        else:
+            self.fields_1_to_2 = {'': {}}
+            fields = {'': []}
+            field_prefix = ''
+
         self.content = []
+
         for line in content:
+
+            if line == '---':
+                field_prefix = 'response_'
             
-            if line.strip().startswith('#') or ' ' not in line:
+            if line.startswith('#') or ' ' not in line:
                 self.content.append(line)
-                continue    
+                continue
                 
             line_spt = line.split()
             type_1 = line_spt[0]
-            field_1= line_spt[1]
+            field_1 = line_spt[1]
             
             if '=' in field_1:
                 field_1, info = field_1.split('=')
@@ -46,7 +61,7 @@ class Interface:
                     line_spt[2] = '=' + info + line_spt[2]
                 
             # adapt field name
-            field_2 = field_1        
+            field_2 = field_1
             if len(line_spt) > 2 and line_spt[2].startswith('='):
                 # constant should be upper case
                 if not field_1.isupper():
@@ -63,9 +78,9 @@ class Interface:
             
             if field_2.islower():
                 if field_2 != field_1:
-                    self.fields_1_to_2[field_1] = field_2
+                    self.fields_1_to_2[field_prefix][field_1] = field_2
                 else:
-                    fields.append(field_1)
+                    fields[field_prefix].append(field_1)
                 
             if package_name in type_2:
                 type_2 = type_2.split('/')[1]
@@ -83,9 +98,10 @@ class Interface:
             self.content.append('{} {} {}'.format(type_2, field_2, ' '.join(line_spt[2:])))
         self.content = '\n'.join(self.content)
         
-        if self.fields_1_to_2:
-            for field in fields:
-                self.fields_1_to_2[field] = field
+        if any(f for f in self.fields_1_to_2.values()):
+            for key in fields:
+                for field in fields[key]:
+                    self.fields_1_to_2[key][field] = field
             
     def save(self, dst):
         dst = os.path.join(dst, self.filename[-3:])
@@ -105,6 +121,7 @@ def usage(s = ''):
     
     print('Run this script by giving the ROS 1 message package path and the ROS 2 workspace')
     sys.exit(0)
+
 
 if __name__ == '__main__':
 
@@ -146,7 +163,7 @@ if __name__ == '__main__':
     if not msgs:
         usage('No interfaces defined in {}'.format(src)) 
 
-    # Create message files    
+    # Create message files
     for msg in msgs:
         msg.save(dst)
         for d in msg.depends:
@@ -181,8 +198,14 @@ if __name__ == '__main__':
     mapping_rules = []
     for msg in msgs:
         if msg.fields_1_to_2:
-            mapping_rules.append({'ros1_package_name': package_name, 'ros2_package_name': package_name, 'ros1_message_name': msg.name, 'ros2_message_name': msg.name})
-            mapping_rules[-1]['fields_1_to_2'] = msg.fields_1_to_2
+            interface = msg.interface + '_name'
+            mapping_rules.append({'ros1_package_name': package_name,
+                                  'ros2_package_name': package_name,
+                                  'ros1_'+interface: msg.name,
+                                  'ros2_'+interface: msg.name})
+            for key in msg.fields_1_to_2:
+                if msg.fields_1_to_2[key]:
+                    mapping_rules[-1][key+'fields_1_to_2'] = msg.fields_1_to_2[key]
     
     if mapping_rules:
         with open(os.path.join(dst, 'mapping_rules.yaml'), 'w') as f:
