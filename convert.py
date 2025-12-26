@@ -7,6 +7,7 @@ import yaml
 import rospkg
 
 types_convert = {}
+types_convert['duration'] = 'builtin_interfaces/Duration'
 types_convert['time'] = 'builtin_interfaces/Time'
 types_convert['Header'] = 'std_msgs/Header'
 types_convert['rosgraph_msgs/Log'] = 'rcl_interfaces/Log'
