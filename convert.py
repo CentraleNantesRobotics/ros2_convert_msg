@@ -68,8 +68,13 @@ class Interface:
                     field_2 = field_1.upper()
             else:
                 # non-constant should be snake_case
-                if not field_1.islower():
-                    field_2 = ''.join(s.islower() and s or '_'+s.lower() for s in field_1).strip('_')
+                # not allowed: doubled or leading/trailing underscores
+                field_2 = ''.join(
+                    s.islower() and s or '_'+s.lower()
+                    for s in field_1
+                ).strip('_')
+                while '__' in field_2:
+                    field_2 = field_2.replace('__', '_')
                     
             # adapt field type
             type_2 = type_1
