@@ -7,7 +7,10 @@ import yaml
 import rospkg
 
 types_convert = {}
+types_convert['duration'] = 'builtin_interfaces/Duration'
+types_convert['std_msgs/Duration'] = 'builtin_interfaces/Duration'
 types_convert['time'] = 'builtin_interfaces/Time'
+types_convert['std_msgs/Time'] = 'builtin_interfaces/Time'
 types_convert['Header'] = 'std_msgs/Header'
 types_convert['rosgraph_msgs/Log'] = 'rcl_interfaces/Log'
 
@@ -68,8 +71,13 @@ class Interface:
                     field_2 = field_1.upper()
             else:
                 # non-constant should be snake_case
-                if not field_1.islower():
-                    field_2 = ''.join(s.islower() and s or '_'+s.lower() for s in field_1).strip('_')
+                # not allowed: doubled or leading/trailing underscores
+                field_2 = ''.join(
+                    s.islower() and s or '_'+s.lower()
+                    for s in field_1
+                ).strip('_')
+                while '__' in field_2:
+                    field_2 = field_2.replace('__', '_')
                     
             # adapt field type
             type_2 = type_1
